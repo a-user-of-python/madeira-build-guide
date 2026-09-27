@@ -103,18 +103,23 @@ xcodebuild \
   -project app/Madeira.xcodeproj \
   -scheme Madeira \
   -destination 'generic/platform=iPadOS' \
+  -derivedDataPath ./build-output \
   -allowProvisioningUpdates \
   build || die "Xcode build failed."
+
+APP_PATH="./build-output/Build/Products/Debug-ipadaos/Madeira.app"
+[ -d "$APP_PATH" ] || die "Build succeeded but .app not found at $APP_PATH"
 
 green ""
 green "==================================="
 green " BUILD COMPLETE (iPadOS)"
 green "==================================="
 green ""
-echo "The .app is in the build output folder (see Xcode build log for path)."
+echo "Your app is here:"
+green "  $APP_PATH"
 echo ""
 echo "To install it on your iPad, run:"
-echo "  xcrun devicectl device install app --device <your-ipad-udid> <path-to-Madeira.app>"
+echo "  xcrun devicectl device install app --device <your-ipad-udid> \"$APP_PATH\""
 echo ""
 echo "Or open Xcode > Window > Devices and Simulators, select your iPad,"
 echo "and drag the .app onto it."
