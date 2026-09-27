@@ -1,14 +1,12 @@
 #!/bin/bash
 # ipados-build.sh — Automates the Mac-only steps of the Madeira build for iPad.
 # Same steps as ios-build.sh but targets iPadOS.
-# Run this from ANYWHERE on your Mac — it finds (or clones) the madeira repo itself.
-# Parts 1-4 of the README (toolchain, VC++ DLLs, licenses) still need to be
-# done inside the repo first, OR pass --full to have the script do them too.
+# Put this script ANYWHERE and run it. It copies itself to ~/Desktop/m-ios,
+# clones the madeira repo there, and does the whole build from that folder.
 #
 # Usage:
-#   ./ipados-build.sh                     # find existing madeira checkout
-#   ./ipados-build.sh --madeira-dir ~/src/madeira
-#   ./ipados-build.sh --full              # clone + toolchain + DLLs + licenses, all automatic
+#   ./ipados-build.sh            # full build from ~/Desktop/m-ios
+#   ./ipados-build.sh --full     # also auto-download toolchain, DLLs, licenses
 #
 # This script will:
 #   1. Verify Xcode and iPhoneOS SDK are present
@@ -22,6 +20,20 @@
 #
 # STOP ON FIRST ERROR
 set -euo pipefail
+
+# ── Self-install: live in ~/Desktop/m-ios ─────────────────────────────
+# No matter where this script is run from, it copies itself into
+# ~/Desktop/m-ios and re-launches from there.
+TARGET_DIR="$HOME/Desktop/m-ios"
+SCRIPT_NAME="$(basename "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ "$SCRIPT_DIR" != "$TARGET_DIR" ]; then
+    mkdir -p "$TARGET_DIR"
+    cp "$0" "$TARGET_DIR/$SCRIPT_NAME"
+    chmod +x "$TARGET_DIR/$SCRIPT_NAME"
+    echo "Moved script to $TARGET_DIR/$SCRIPT_NAME — launching from there..."
+    exec "$TARGET_DIR/$SCRIPT_NAME" "$@"
+fi
 
 # ── Helpers ──────────────────────────────────────────────────────────
 red()   { printf '\033[1;31m%s\033[0m\n' "$*"; }
@@ -38,47 +50,28 @@ green "Xcode OK: $(xcodebuild -version | head -1)"
 green "iPhoneOS SDK: $(xcrun -sdk iphoneos --show-sdk-path)"
 
 # ── Parse arguments ──────────────────────────────────────────────────
-MADEIRA_DIR=""
 FULL_AUTO=0
 for arg in "$@"; do
     case "$arg" in
-        --madeira-dir=*) MADEIRA_DIR="${arg#*=}" ;;
-        --madeira-dir) shift; MADEIRA_DIR="$1" ;;
         --full) FULL_AUTO=1 ;;
     esac
 done
 
 # ── 2. Locate (or clone) the madeira repo ─────────────────────────────
-step "Locating madeira repo..."
-find_madeira() {
-    # 1. Explicit --madeira-dir or $MADEIRA_DIR
-    for d in "$MADEIRA_DIR" "$HOME/madeira" "$HOME/src/madeira" \
-             "$HOME/workspace/madeira" "$HOME/Downloads/madeira" \
-             "$HOME/Desktop/madeira" "$(pwd)" "$(pwd)/madeira" \
-             "$(dirname "$0")" "$(dirname "$0")/.." "$(dirname "$0")/../madeira"; do
-        [ -n "$d" ] && [ -d "$d/FEX" ] && [ -d "$d/app" ] && { echo "$d"; return 0; }
-    done
-    return 1
-}
-
-MADEIRA_DIR="${MADEIRA_DIR:-$(find_madeira)}" || true
-
-if [ -z "$MADEIRA_DIR" ]; then
-    if [ "$FULL_AUTO" -eq 1 ]; then
-        MADEIRA_DIR="$HOME/madeira"
-        step "Cloning madeira to $MADEIRA_DIR..."
-        git clone --recurse-submodules https://github.com/willfaust/madeira.git "$MADEIRA_DIR" \
-            || die "Clone failed."
-    else
-        red "Could not find a madeira checkout."
-        echo ""
-        echo "Options:"
-        echo "  1. Run with --full to clone it automatically:"
-        echo "       $0 --full"
-        echo "  2. Point at your existing checkout:"
-        echo "       $0 --madeira-dir ~/path/to/madeira"
-        exit 1
-    fi
+# The repo lives in ~/Desktop/m-ios (where this script runs from).
+step "Checking madeira repo..."
+MADEIRA_DIR="$TARGET_DIR"
+if [ ! -d "$MADEIRA_DIR/FEX" ] || [ ! -d "$MADEIRA_DIR/app" ]; then
+    step "Cloning madeira into $MADEIRA_DIR..."
+    # The script itself is already in here, so stash it, clone, restore it.
+    tmp_script="$(mktemp)"
+    cp "$0" "$tmp_script"
+    rm -rf "$MADEIRA_DIR"
+    git clone --recurse-submodules https://github.com/willfaust/madeira.git "$MADEIRA_DIR" \
+        || die "Clone failed. Check your internet connection."
+    cp "$tmp_script" "$MADEIRA_DIR/$SCRIPT_NAME"
+    chmod +x "$MADEIRA_DIR/$SCRIPT_NAME"
+    rm -f "$tmp_script"
 fi
 
 cd "$MADEIRA_DIR" || die "Cannot cd to $MADEIRA_DIR"
