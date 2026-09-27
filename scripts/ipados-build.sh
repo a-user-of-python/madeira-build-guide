@@ -43,23 +43,11 @@ step()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 die()   { red "FATAL: $*"; exit 1; }
 
 # ── 1. Xcode + SDK checks ────────────────────────────────────────────
-step "Checking Xcode and SDK..."
+step "Checking Xcode and iPhoneOS SDK..."
 xcode-select -p >/dev/null 2>&1 || die "Xcode command-line tools not installed. Install Xcode from the App Store, then run: xcode-select --install"
-# Prefer a dedicated iPadOS SDK if present, otherwise fall back to iPhoneOS
-# (which covers iPad too).
-if xcrun -sdk ipados --show-sdk-path >/dev/null 2>&1; then
-    SDK_NAME="ipados"
-    DEST="generic/platform=iPadOS"
-    PROD_DIR="Debug-ipados"
-elif xcrun -sdk iphoneos --show-sdk-path >/dev/null 2>&1; then
-    SDK_NAME="iphoneos"
-    DEST="generic/platform=iOS"
-    PROD_DIR="Debug-iphoneos"
-else
-    die "No iOS SDK found. Open Xcode once to finish setup."
-fi
+xcrun -sdk iphoneos --show-sdk-path >/dev/null 2>&1 || die "iPhoneOS SDK not found. Open Xcode once to finish setup."
 green "Xcode OK: $(xcodebuild -version | head -1)"
-green "Using SDK: $SDK_NAME ($(xcrun -sdk $SDK_NAME --show-sdk-path))"
+green "iPhoneOS SDK: $(xcrun -sdk iphoneos --show-sdk-path)"
 
 # ── Parse arguments ──────────────────────────────────────────────────
 FULL_AUTO=0
@@ -189,13 +177,12 @@ step "Running Xcode build (Debug scheme, iPadOS)..."
 xcodebuild \
   -project app/Madeira.xcodeproj \
   -scheme Madeira \
-  -sdk "$SDK_NAME" \
-  -destination "$DEST" \
+  -destination 'generic/platform=iOS' \
   -derivedDataPath ./build-output \
   -allowProvisioningUpdates \
   build || die "Xcode build failed."
 
-APP_PATH="./build-output/Build/Products/$PROD_DIR/Madeira.app"
+APP_PATH="./build-output/Build/Products/Debug-iphoneos/Madeira.app"
 [ -d "$APP_PATH" ] || die "Build succeeded but .app not found at $APP_PATH"
 
 # ── Package as .ipa ──────────────────────────────────────────────────
