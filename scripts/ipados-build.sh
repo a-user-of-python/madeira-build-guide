@@ -189,6 +189,7 @@ step "Running Xcode build (Debug scheme, iPadOS)..."
 xcodebuild \
   -project app/Madeira.xcodeproj \
   -scheme Madeira \
+  -sdk "$SDK_NAME" \
   -destination "$DEST" \
   -derivedDataPath ./build-output \
   -allowProvisioningUpdates \
