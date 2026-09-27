@@ -78,5 +78,5 @@ Or open Xcode > Window > Devices and Simulators, select your device, and drag th
 Then attach StikDebug so the app gets JIT access — it won't run without it.
 
 ## Or run it all at once
-- `scripts/mac-build.sh` — does every step automatically for iPhone
-- `scripts/mac-build-ipados.sh` — same but targets iPad
+- `scripts/ios-build.sh` — does every step automatically for iPhone
+- `scripts/ipados-build.sh` — same but targets iPad
