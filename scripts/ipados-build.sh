@@ -185,18 +185,30 @@ xcodebuild \
 APP_PATH="./build-output/Build/Products/Debug-ipadaos/Madeira.app"
 [ -d "$APP_PATH" ] || die "Build succeeded but .app not found at $APP_PATH"
 
+# ── Package as .ipa ──────────────────────────────────────────────────
+step "Packaging .ipa..."
+IPA_PATH="./build-output/Madeira-iPadOS.ipa"
+rm -rf ./build-output/Payload ./build-output/Madeira-iPadOS.ipa
+mkdir -p ./build-output/Payload
+cp -R "$APP_PATH" ./build-output/Payload/
+(cd ./build-output && zip -qr Madeira-iPadOS.ipa Payload)
+rm -rf ./build-output/Payload
+[ -f "$IPA_PATH" ] || die "Failed to create .ipa"
+green "IPA ready: $IPA_PATH"
+
 green ""
 green "==================================="
 green " BUILD COMPLETE (iPadOS)"
 green "==================================="
 green ""
-echo "Your app is here:"
-green "  $APP_PATH"
+echo "Your files:"
+green "  App: $APP_PATH"
+green "  IPA: $IPA_PATH"
 echo ""
-echo "To install it on your iPad, run:"
+echo "To install the .app directly:"
 echo "  xcrun devicectl device install app --device <your-ipad-udid> \"$APP_PATH\""
 echo ""
-echo "Or open Xcode > Window > Devices and Simulators, select your iPad,"
-echo "and drag the .app onto it."
+echo "Or sideload the .ipa with Sideloadly, AltStore, or:"
+echo "  xcrun devicectl device install app --device <your-ipad-udid> \"$IPA_PATH\""
 echo ""
 echo "Then attach StikDebug for JIT — the app won't run without it."
