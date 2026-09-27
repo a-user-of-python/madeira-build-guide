@@ -177,12 +177,12 @@ step "Running Xcode build (Debug scheme, iPadOS)..."
 xcodebuild \
   -project app/Madeira.xcodeproj \
   -scheme Madeira \
-  -destination 'generic/platform=iPadOS' \
+  -destination 'generic/platform=iOS' \
   -derivedDataPath ./build-output \
   -allowProvisioningUpdates \
   build || die "Xcode build failed."
 
-APP_PATH="./build-output/Build/Products/Debug-ipadaos/Madeira.app"
+APP_PATH="./build-output/Build/Products/Debug-iphoneos/Madeira.app"
 [ -d "$APP_PATH" ] || die "Build succeeded but .app not found at $APP_PATH"
 
 # ── Package as .ipa ──────────────────────────────────────────────────
