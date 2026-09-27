@@ -154,10 +154,14 @@ check_submodule "research/dxmt"  "ca8a2516d819e7e1f366981825ad1f0d26f80fdd"
 
 # ── 4. FEX iOS static libraries ───────────────────────────────────────
 step "Building FEX iOS static libraries (this takes a while)..."
-# Patch: tell CMake the target processor is ARM64 (needed on Intel Macs)
+# Patch: fix FEX build for macOS
+# - Set target processor (needed on Intel Macs)
+# - Disable native CPU detection (reads /proc/cpuinfo, Linux-only)
 if [ -f "build/fex-ios/build.sh" ]; then
     sed -i '' 's/-DCMAKE_SYSTEM_NAME=iOS/-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=arm64/' build/fex-ios/build.sh 2>/dev/null || \
     sed -i 's/-DCMAKE_SYSTEM_NAME=iOS/-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=arm64/' build/fex-ios/build.sh
+    sed -i '' 's/-DENABLE_CLANG_THUNKS=ON/-DENABLE_CLANG_THUNKS=ON -DTUNE_CPU=none -DTUNE_ARCH=generic/' build/fex-ios/build.sh 2>/dev/null || \
+    sed -i 's/-DENABLE_CLANG_THUNKS=ON/-DENABLE_CLANG_THUNKS=ON -DTUNE_CPU=none -DTUNE_ARCH=generic/' build/fex-ios/build.sh
 fi
 ./build/fex-ios/build.sh || die "FEX iOS build failed."
 
