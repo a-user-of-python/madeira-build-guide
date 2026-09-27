@@ -54,12 +54,14 @@ curl -sL -o vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
 
 ```bash
 # Build the final app for iPhone (use Debug — Release crashes)
-xcodebuild -project app/Madeira.xcodeproj -scheme Madeira -destination 'generic/platform=iOS' -allowProvisioningUpdates build
+# The .app lands in ./build-output/Build/Products/Debug-iphoneos/Madeira.app
+xcodebuild -project app/Madeira.xcodeproj -scheme Madeira -destination 'generic/platform=iOS' -derivedDataPath ./build-output -allowProvisioningUpdates build
 ```
 
 ```bash
 # Or build for iPad instead
-xcodebuild -project app/Madeira.xcodeproj -scheme Madeira -destination 'generic/platform=iPadOS' -allowProvisioningUpdates build
+# The .app lands in ./build-output/Build/Products/Debug-ipadaos/Madeira.app
+xcodebuild -project app/Madeira.xcodeproj -scheme Madeira -destination 'generic/platform=iPadOS' -derivedDataPath ./build-output -allowProvisioningUpdates build
 ```
 
 ## Sideload it
