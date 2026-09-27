@@ -1,19 +1,24 @@
 #!/bin/bash
 # ipados-build.sh — Automates the Mac-only steps of the Madeira build for iPad.
 # Same steps as ios-build.sh but targets iPadOS.
-# Run this on your Mac after cloning willfaust/madeira and completing
-# Parts 1-4 of the README (clone, toolchain, VC++ DLLs, licenses).
+# Run this from ANYWHERE on your Mac — it finds (or clones) the madeira repo itself.
+# Parts 1-4 of the README (toolchain, VC++ DLLs, licenses) still need to be
+# done inside the repo first, OR pass --full to have the script do them too.
 #
-# Usage: ./ipados-build.sh
+# Usage:
+#   ./ipados-build.sh                     # find existing madeira checkout
+#   ./ipados-build.sh --madeira-dir ~/src/madeira
+#   ./ipados-build.sh --full              # clone + toolchain + DLLs + licenses, all automatic
 #
 # This script will:
 #   1. Verify Xcode and iPhoneOS SDK are present
-#   2. Verify submodule commits match the pinned versions
-#   3. Build FEX iOS static libraries
-#   4. Build Wine Unix libraries
-#   5. Build DXMT combined library
-#   6. Verify all expected archives exist
-#   7. Run the Debug Xcode build
+#   2. Locate (or clone) the madeira repo
+#   3. Verify submodule commits match the pinned versions
+#   4. Build FEX iOS static libraries
+#   5. Build Wine Unix libraries
+#   6. Build DXMT combined library
+#   7. Verify all expected archives exist
+#   8. Run the Debug Xcode build (iPadOS)
 #
 # STOP ON FIRST ERROR
 set -euo pipefail
@@ -32,17 +37,90 @@ xcrun -sdk iphoneos --show-sdk-path >/dev/null 2>&1 || die "iPhoneOS SDK not fou
 green "Xcode OK: $(xcodebuild -version | head -1)"
 green "iPhoneOS SDK: $(xcrun -sdk iphoneos --show-sdk-path)"
 
-# ── 2. Submodule verification ─────────────────────────────────────────
-step "Verifying submodule commits..."
-# The script must run from the madeira repo root. If it's sitting in a
-# scripts/ subfolder, go up one level.
-cd "$(dirname "$0")"
-if [ ! -d "FEX" ] && [ -d "../FEX" ]; then
-    cd ..
+# ── Parse arguments ──────────────────────────────────────────────────
+MADEIRA_DIR=""
+FULL_AUTO=0
+for arg in "$@"; do
+    case "$arg" in
+        --madeira-dir=*) MADEIRA_DIR="${arg#*=}" ;;
+        --madeira-dir) shift; MADEIRA_DIR="$1" ;;
+        --full) FULL_AUTO=1 ;;
+    esac
+done
+
+# ── 2. Locate (or clone) the madeira repo ─────────────────────────────
+step "Locating madeira repo..."
+find_madeira() {
+    # 1. Explicit --madeira-dir or $MADEIRA_DIR
+    for d in "$MADEIRA_DIR" "$HOME/madeira" "$HOME/src/madeira" \
+             "$HOME/workspace/madeira" "$HOME/Downloads/madeira" \
+             "$HOME/Desktop/madeira" "$(pwd)" "$(pwd)/madeira" \
+             "$(dirname "$0")" "$(dirname "$0")/.." "$(dirname "$0")/../madeira"; do
+        [ -n "$d" ] && [ -d "$d/FEX" ] && [ -d "$d/app" ] && { echo "$d"; return 0; }
+    done
+    return 1
+}
+
+MADEIRA_DIR="${MADEIRA_DIR:-$(find_madeira)}" || true
+
+if [ -z "$MADEIRA_DIR" ]; then
+    if [ "$FULL_AUTO" -eq 1 ]; then
+        MADEIRA_DIR="$HOME/madeira"
+        step "Cloning madeira to $MADEIRA_DIR..."
+        git clone --recurse-submodules https://github.com/willfaust/madeira.git "$MADEIRA_DIR" \
+            || die "Clone failed."
+    else
+        red "Could not find a madeira checkout."
+        echo ""
+        echo "Options:"
+        echo "  1. Run with --full to clone it automatically:"
+        echo "       $0 --full"
+        echo "  2. Point at your existing checkout:"
+        echo "       $0 --madeira-dir ~/path/to/madeira"
+        exit 1
+    fi
 fi
-if [ ! -d "FEX" ]; then
-    die "Run this from the madeira repo root (the directory containing FEX/, wine/, app/). Copy the script there first."
+
+cd "$MADEIRA_DIR" || die "Cannot cd to $MADEIRA_DIR"
+green "Using madeira repo: $(pwd)"
+
+# ── 2b. Full-auto: toolchain, DLLs, licenses ──────────────────────────
+if [ "$FULL_AUTO" -eq 1 ]; then
+    step "Setting up toolchain..."
+    if [ ! -d "toolchains/llvm-mingw-20260421-ucrt-macos-universal" ]; then
+        mkdir -p toolchains && cd toolchains
+        curl -sL -o llvm-mingw.tar.xz https://github.com/mstorsjo/llvm-mingw/releases/download/20260421/llvm-mingw-20260421-ucrt-ubuntu-22.04-x86_64.tar.xz
+        tar -xf llvm-mingw.tar.xz
+        ln -sfn llvm-mingw-20260421-ucrt-ubuntu-22.04-x86_64 llvm-mingw-20260421-ucrt-macos-universal
+        cd ..
+        green "Toolchain ready."
+    else
+        green "Toolchain already present."
+    fi
+
+    step "Checking VC++ runtime DLLs..."
+    DLLDIR="app/Madeira/x86_64-vcruntime"
+    NEEDED="concrt140.dll msvcp140.dll msvcp140_1.dll msvcp140_2.dll msvcp140_atomic_wait.dll msvcp140_codecvt_ids.dll vcamp140.dll vccorlib140.dll vcomp140.dll vcruntime140.dll vcruntime140_1.dll vcruntime140_threads.dll"
+    missing_dlls=""
+    for dll in $NEEDED; do
+        [ -f "$DLLDIR/$dll" ] || missing_dlls="$missing_dlls $dll"
+    done
+    if [ -n "$missing_dlls" ]; then
+        yellow "Missing DLLs:$missing_dlls"
+        echo "Downloading vc_redist.x64.exe — extract it with 7-Zip/Keka,"
+        echo "then copy the 12 DLLs to $DLLDIR/"
+        curl -sL -o vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
+        echo ""
+        read -r -p "Press Enter once the DLLs are in place, or Ctrl-C to abort..." _
+    else
+        green "All 12 VC++ DLLs present."
+    fi
+
+    step "Refreshing licenses..."
+    ./build/stage-licenses.sh || die "stage-licenses.sh failed."
 fi
+
+# ── 3. Submodule verification ─────────────────────────────────────────
 
 check_submodule() {
     local path="$1" expected="$2"
@@ -61,11 +139,11 @@ check_submodule "FEX"            "0f8edf8f6383ae8085e0ffac511c789cdae97514"
 check_submodule "wine"           "723d1bf5132768276cea9bc35ab59c83557bb5fb"
 check_submodule "research/dxmt"  "ca8a2516d819e7e1f366981825ad1f0d26f80fdd"
 
-# ── 3. FEX iOS static libraries ───────────────────────────────────────
+# ── 4. FEX iOS static libraries ───────────────────────────────────────
 step "Building FEX iOS static libraries (this takes a while)..."
 ./build/fex-ios/build.sh || die "FEX iOS build failed."
 
-# ── 4. Wine Unix libraries ────────────────────────────────────────────
+# ── 5. Wine Unix libraries ────────────────────────────────────────────
 step "Building Wine Unix libraries..."
 for component in ntdll-unix win32u-unix wineserver; do
     if [ -x "build/$component/build.sh" ]; then
@@ -78,11 +156,11 @@ for component in ntdll-unix win32u-unix wineserver; do
     fi
 done
 
-# ── 5. DXMT combined library ──────────────────────────────────────────
+# ── 6. DXMT combined library ──────────────────────────────────────────
 step "Building DXMT combined iOS library..."
 ./build/dxmt-ios/build.sh || die "DXMT iOS build failed."
 
-# ── 6. Verify all expected archives ───────────────────────────────────
+# ── 7. Verify all expected archives ───────────────────────────────────
 step "Verifying all expected static libraries..."
 missing=0
 for lib in \
@@ -101,7 +179,7 @@ for lib in \
 done
 [ "$missing" -eq 0 ] || die "Some libraries are missing. Fix the failed builds above."
 
-# ── 7. Xcode build (Debug, iPadOS) ────────────────────────────────────
+# ── 8. Xcode build (Debug, iPadOS) ────────────────────────────────────
 step "Running Xcode build (Debug scheme, iPadOS)..."
 xcodebuild \
   -project app/Madeira.xcodeproj \
