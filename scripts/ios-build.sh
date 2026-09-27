@@ -100,33 +100,24 @@ if [ "$FULL_AUTO" -eq 1 ]; then
     done
     if [ -n "$missing_dlls" ]; then
         yellow "Missing DLLs:$missing_dlls"
-        echo "Downloading vc_redist.x64.exe..."
-        curl -sL -o vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
-        # Try auto-extract with 7z if available
-        if command -v 7z >/dev/null 2>&1; then
-            echo "Extracting DLLs automatically..."
-            rm -rf vc_extract && mkdir -p vc_extract
-            7z x -ovc_extract vc_redist.x64.exe >/dev/null 2>&1
-            # The exe contains MSIs/CABs — extract those too, recursively
-            find vc_extract -name "*.msi" -o -name "*.cab" | while read -r archive; do
-                7z x -o"$(dirname "$archive")" "$archive" >/dev/null 2>&1
-            done
-            # Find and copy the 12 DLLs from wherever they ended up
-            for dll in $NEEDED; do
-                found_dll=$(find vc_extract -iname "$dll" 2>/dev/null | head -1)
-                [ -n "$found_dll" ] && cp "$found_dll" "$DLLDIR/"
-            done
-            rm -rf vc_extract
-        fi
-        # Re-check after auto-extract attempt
+        echo "Downloading VC++ runtime DLLs..."
+        curl -sL -o msvc-redist.zip https://downloads.hydraulic.dev/msvc-redist/msvc-redist-x64-14.38.32919.zip
+        rm -rf vc_extract && mkdir -p vc_extract
+        unzip -q -o msvc-redist.zip -d vc_extract
+        # Find and copy the 12 DLLs from wherever they ended up
+        for dll in $NEEDED; do
+            found_dll=$(find vc_extract -iname "$dll" 2>/dev/null | head -1)
+            [ -n "$found_dll" ] && cp "$found_dll" "$DLLDIR/"
+        done
+        rm -rf vc_extract msvc-redist.zip
+        # Re-check after download
         missing_dlls=""
         for dll in $NEEDED; do
             [ -f "$DLLDIR/$dll" ] || missing_dlls="$missing_dlls $dll"
         done
         if [ -n "$missing_dlls" ]; then
             yellow "Still missing:$missing_dlls"
-            echo "Extract vc_redist.x64.exe with Keka (https://www.keka.io),"
-            echo "then copy the 12 DLLs to:"
+            echo "Copy the 12 DLLs manually to:"
             echo "  $(pwd)/$DLLDIR/"
             echo ""
             read -r -p "Press Enter once the DLLs are in place, or Ctrl-C to abort..." _
