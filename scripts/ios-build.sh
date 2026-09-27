@@ -107,7 +107,11 @@ if [ "$FULL_AUTO" -eq 1 ]; then
             echo "Extracting DLLs automatically..."
             rm -rf vc_extract && mkdir -p vc_extract
             7z x -ovc_extract vc_redist.x64.exe >/dev/null 2>&1
-            # Find and copy the 12 DLLs from wherever 7z put them
+            # The exe contains MSIs/CABs — extract those too, recursively
+            find vc_extract -name "*.msi" -o -name "*.cab" | while read -r archive; do
+                7z x -o"$(dirname "$archive")" "$archive" >/dev/null 2>&1
+            done
+            # Find and copy the 12 DLLs from wherever they ended up
             for dll in $NEEDED; do
                 found_dll=$(find vc_extract -iname "$dll" 2>/dev/null | head -1)
                 [ -n "$found_dll" ] && cp "$found_dll" "$DLLDIR/"
