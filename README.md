@@ -13,7 +13,6 @@ Madeira runs Windows games on iOS by combining:
 
 - **Mac** with Xcode installed
 - **iPhone** running iOS 17+ (A15 chip or newer recommended)
-  - ⚠️ iPhone 7 (iOS 15 max) **cannot** run this
 - **StikDebug** (or equivalent) for JIT attachment — the app needs JIT
 - Free Apple ID works for signing (expires every 7 days, must re-sideload)
 
