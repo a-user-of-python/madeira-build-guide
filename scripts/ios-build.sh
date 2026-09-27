@@ -92,6 +92,7 @@ if [ "$FULL_AUTO" -eq 1 ]; then
 
     step "Checking VC++ runtime DLLs..."
     DLLDIR="app/Madeira/x86_64-vcruntime"
+    mkdir -p "$DLLDIR"
     NEEDED="concrt140.dll msvcp140.dll msvcp140_1.dll msvcp140_2.dll msvcp140_atomic_wait.dll msvcp140_codecvt_ids.dll vcamp140.dll vccorlib140.dll vcomp140.dll vcruntime140.dll vcruntime140_1.dll vcruntime140_threads.dll"
     missing_dlls=""
     for dll in $NEEDED; do
@@ -99,11 +100,35 @@ if [ "$FULL_AUTO" -eq 1 ]; then
     done
     if [ -n "$missing_dlls" ]; then
         yellow "Missing DLLs:$missing_dlls"
-        echo "Downloading vc_redist.x64.exe — extract it with 7-Zip/Keka,"
-        echo "then copy the 12 DLLs to $DLLDIR/"
+        echo "Downloading vc_redist.x64.exe..."
         curl -sL -o vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
-        echo ""
-        read -r -p "Press Enter once the DLLs are in place, or Ctrl-C to abort..." _
+        # Try auto-extract with 7z if available
+        if command -v 7z >/dev/null 2>&1; then
+            echo "Extracting DLLs automatically..."
+            rm -rf vc_extract && mkdir -p vc_extract
+            7z x -ovc_extract vc_redist.x64.exe >/dev/null 2>&1
+            # Find and copy the 12 DLLs from wherever 7z put them
+            for dll in $NEEDED; do
+                found_dll=$(find vc_extract -iname "$dll" 2>/dev/null | head -1)
+                [ -n "$found_dll" ] && cp "$found_dll" "$DLLDIR/"
+            done
+            rm -rf vc_extract
+        fi
+        # Re-check after auto-extract attempt
+        missing_dlls=""
+        for dll in $NEEDED; do
+            [ -f "$DLLDIR/$dll" ] || missing_dlls="$missing_dlls $dll"
+        done
+        if [ -n "$missing_dlls" ]; then
+            yellow "Still missing:$missing_dlls"
+            echo "Extract vc_redist.x64.exe with Keka (https://www.keka.io),"
+            echo "then copy the 12 DLLs to:"
+            echo "  $(pwd)/$DLLDIR/"
+            echo ""
+            read -r -p "Press Enter once the DLLs are in place, or Ctrl-C to abort..." _
+        else
+            green "All 12 VC++ DLLs present."
+        fi
     else
         green "All 12 VC++ DLLs present."
     fi
