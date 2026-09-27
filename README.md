@@ -53,12 +53,28 @@ curl -sL -o vc_redist.x64.exe https://aka.ms/vs/17/release/vc_redist.x64.exe
 ```
 
 ```bash
-# Build the final app (use Debug — Release crashes)
+# Build the final app for iPhone (use Debug — Release crashes)
 xcodebuild -project app/Madeira.xcodeproj -scheme Madeira -destination 'generic/platform=iOS' -allowProvisioningUpdates build
 ```
 
+```bash
+# Or build for iPad instead
+xcodebuild -project app/Madeira.xcodeproj -scheme Madeira -destination 'generic/platform=iPadOS' -allowProvisioningUpdates build
+```
+
 ## Sideload it
-Sideload the `.app` to your iPhone. Attach StikDebug so the app gets JIT access — it won't run without it.
+The build does NOT install to your device automatically. To install:
+
+```bash
+# Find your device's UDID in Xcode > Window > Devices and Simulators,
+# then install with:
+xcrun devicectl device install app --device <your-device-udid> <path-to-Madeira.app>
+```
+
+Or open Xcode > Window > Devices and Simulators, select your device, and drag the `.app` onto it.
+
+Then attach StikDebug so the app gets JIT access — it won't run without it.
 
 ## Or run it all at once
-`scripts/mac-build.sh` in this repo does every step above automatically with checks.
+- `scripts/mac-build.sh` — does every step automatically for iPhone
+- `scripts/mac-build-ipados.sh` — same but targets iPad
