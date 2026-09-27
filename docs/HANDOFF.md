@@ -76,8 +76,7 @@ These can't be built on Linux (need Xcode + iPhoneOS SDK):
 ## Constraints to keep in mind
 
 - Targets `arm64-apple-ios17.0`; needs a device that runs iOS 17+
-  (iPhone 13 Pro/A15 was the dev machine). An iPhone 7 (iOS 15 ceiling)
-  cannot run it.
+  (iPhone 13 Pro/A15 was the dev machine).
 - Requires JIT — attach via StikDebug (or equivalent debugger).
 - Free Apple signing works but expires every 7 days; sideload, not App Store.
 - This is a rough research project; the full clean-machine build was
