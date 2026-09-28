@@ -158,11 +158,15 @@ step "Building FEX iOS static libraries (this takes a while)..."
 # - Disable native CPU detection (reads /proc/cpuinfo, Linux-only)
 # - Define FEX_IOS_HOST (enables iOS-specific code in FEX)
 if [ -f "build/fex-ios/build.sh" ]; then
+    # Reset build.sh to pristine state first (patches must be idempotent)
+    git checkout -- build/fex-ios/build.sh 2>/dev/null || true
     sed -i '' 's/-DCMAKE_SYSTEM_NAME=iOS/-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=arm64/' build/fex-ios/build.sh 2>/dev/null || \
     sed -i 's/-DCMAKE_SYSTEM_NAME=iOS/-DCMAKE_SYSTEM_NAME=iOS -DCMAKE_SYSTEM_PROCESSOR=arm64/' build/fex-ios/build.sh
-    sed -i '' 's/-DENABLE_CLANG_THUNKS=ON/-DENABLE_CLANG_THUNKS=ON -DTUNE_CPU=none -DTUNE_ARCH=generic -DFEX_IOS_HOST_BUILD=ON -DCMAKE_C_FLAGS=-DFEX_IOS_HOST -DCMAKE_CXX_FLAGS=-DFEX_IOS_HOST -DCMAKE_ASM_FLAGS=-DFEX_IOS_HOST/' build/fex-ios/build.sh 2>/dev/null || \
-    sed -i 's/-DENABLE_CLANG_THUNKS=ON/-DENABLE_CLANG_THUNKS=ON -DTUNE_CPU=none -DTUNE_ARCH=generic -DFEX_IOS_HOST_BUILD=ON -DCMAKE_C_FLAGS=-DFEX_IOS_HOST -DCMAKE_CXX_FLAGS=-DFEX_IOS_HOST -DCMAKE_ASM_FLAGS=-DFEX_IOS_HOST/' build/fex-ios/build.sh
+    sed -i '' 's/-DENABLE_CLANG_THUNKS=ON/-DENABLE_CLANG_THUNKS=ON -DTUNE_CPU=none -DTUNE_ARCH=generic -DCMAKE_C_FLAGS=-DFEX_IOS_HOST -DCMAKE_CXX_FLAGS=-DFEX_IOS_HOST -DCMAKE_ASM_FLAGS=-DFEX_IOS_HOST/' build/fex-ios/build.sh 2>/dev/null || \
+    sed -i 's/-DENABLE_CLANG_THUNKS=ON/-DENABLE_CLANG_THUNKS=ON -DTUNE_CPU=none -DTUNE_ARCH=generic -DCMAKE_C_FLAGS=-DFEX_IOS_HOST -DCMAKE_CXX_FLAGS=-DFEX_IOS_HOST -DCMAKE_ASM_FLAGS=-DFEX_IOS_HOST/' build/fex-ios/build.sh
 fi
+# Force clean reconfigure so new flags take effect
+rm -rf FEX/build-ios
 ./build/fex-ios/build.sh || die "FEX iOS build failed."
 
 # ── 5. Wine Unix libraries ────────────────────────────────────────────
