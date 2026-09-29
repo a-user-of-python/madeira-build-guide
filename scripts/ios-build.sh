@@ -1,7 +1,7 @@
 #!/bin/bash
 # ios-build.sh — Automates the Mac-only steps of the Madeira build for iPhone.
 # Put this script ANYWHERE and run it. It copies itself to ~/Desktop/m-ios,
-# clones the madeira repo there, and does the whole build from that folder.
+# clones Sean's madeira fork there, and does the whole build from that folder.
 #
 # Usage:
 #   ./ios-build.sh            # full build from ~/Desktop/m-ios
@@ -60,13 +60,22 @@ done
 # The repo lives in ~/Desktop/m-ios (where this script runs from).
 step "Checking madeira repo..."
 MADEIRA_DIR="$TARGET_DIR"
+# Sean's fork of madeira (adds the web-import game loader). Fresh clones come
+# from here; existing checkouts are repointed at it just below.
+FORK_URL="https://github.com/a-user-of-python/Madeira.git"
 if [ ! -d "$MADEIRA_DIR/FEX" ] || [ ! -d "$MADEIRA_DIR/app" ]; then
-    step "Cloning madeira into $MADEIRA_DIR..."
+    step "Cloning madeira fork into $MADEIRA_DIR..."
     # The script itself is already in here, so stash it, clone, restore it.
     tmp_script="$(mktemp)"
     cp "$0" "$tmp_script"
-    rm -rf "$MADEIRA_DIR"
-    git clone --recurse-submodules https://github.com/willfaust/madeira.git "$MADEIRA_DIR" \
+    # Never delete the old folder: move a broken/partial checkout aside so
+    # anything of yours in it survives.
+    if [ -e "$MADEIRA_DIR" ]; then
+        bak="$MADEIRA_DIR.bak-$(date +%Y%m%d-%H%M%S)"
+        mv "$MADEIRA_DIR" "$bak"
+        yellow "Moved old checkout aside to $bak"
+    fi
+    git clone --recurse-submodules "$FORK_URL" "$MADEIRA_DIR" \
         || die "Clone failed. Check your internet connection."
     cp "$tmp_script" "$MADEIRA_DIR/$SCRIPT_NAME"
     chmod +x "$MADEIRA_DIR/$SCRIPT_NAME"
@@ -75,6 +84,36 @@ fi
 
 cd "$MADEIRA_DIR" || die "Cannot cd to $MADEIRA_DIR"
 green "Using madeira repo: $(pwd)"
+
+# An existing checkout may still point at upstream willfaust/madeira.
+# Repoint it at the fork and fast-forward to the fork's latest main when the
+# tree is clean, so the build picks up the newest fork changes (web import).
+# Local changes are never clobbered: a dirty, diverged, or off-branch tree
+# builds exactly as it is.
+if [ -d .git ]; then
+    git remote set-url origin "$FORK_URL"
+    cur_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    if [ "$cur_branch" = "main" ] || [ "$cur_branch" = "master" ]; then
+        if git fetch origin main 2>/dev/null; then
+            if git diff --quiet && git diff --cached --quiet; then
+                if git merge --ff-only origin/main >/dev/null 2>&1; then
+                    green "On latest fork commit: $(git rev-parse --short HEAD)"
+                    step "Syncing submodules to the fork commit..."
+                    git submodule update --init --recursive 2>/dev/null \
+                        || yellow "Submodule sync had issues; continuing."
+                else
+                    yellow "Checkout diverged from the fork; building what's checked out."
+                fi
+            else
+                yellow "Working tree has local changes; building what's checked out."
+            fi
+        else
+            yellow "Could not reach the fork; building what's checked out."
+        fi
+    else
+        yellow "On branch '$cur_branch'; building what's checked out."
+    fi
+fi
 
 # ── 2b. Full-auto: toolchain, DLLs, licenses ──────────────────────────
 if [ "$FULL_AUTO" -eq 1 ]; then
