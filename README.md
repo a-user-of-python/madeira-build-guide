@@ -80,3 +80,5 @@ Then attach StikDebug so the app gets JIT access — it won't run without it.
 ## Or run it all at once
 - `scripts/ios-build.sh` — does every step automatically for iPhone
 - `scripts/ipados-build.sh` — same but targets iPad
+
+> Built with Muse — AI-assisted development.
